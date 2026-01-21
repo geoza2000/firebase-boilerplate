@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Bell, X } from 'lucide-react';
 import { isPWAInstalled } from '@/lib/pwa';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { usePushNotificationSettings } from '@/hooks/usePushNotificationSettings';
 
 const STORAGE_KEY = 'notification-prompt-dismissed';
@@ -13,7 +13,7 @@ const DISMISS_DURATION_DAYS = 7; // Re-prompt after 7 days
  * Shows a minimal banner - clicking "Enable" triggers the native browser popup.
  */
 export function NotificationPrompt() {
-  const { user } = useAuth();
+  const { user } = useAuthContext();
   const { browserPermission, isEnabled, enable, isLoading } = usePushNotificationSettings({ 
     userId: user?.uid || null 
   });

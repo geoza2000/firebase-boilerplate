@@ -1,7 +1,7 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import { getFirestore, Firestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAuth, Auth, GoogleAuthProvider } from 'firebase/auth';
-import { getFunctions, Functions, httpsCallable } from 'firebase/functions';
+import { getFunctions, Functions, httpsCallable, connectFunctionsEmulator } from 'firebase/functions';
 import { getMessaging, Messaging, getToken, onMessage } from 'firebase/messaging';
 import { getFirebaseMessagingSwRegistration } from './serviceWorkerManager';
 
@@ -14,6 +14,9 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
+
+// Check if emulators should be used
+const USE_EMULATORS = import.meta.env.VITE_USE_EMULATORS === 'true';
 
 let app: FirebaseApp;
 let db: Firestore;
@@ -31,7 +34,15 @@ db = getFirestore(app);
 auth = getAuth(app);
 functions = getFunctions(app, 'us-central1');
 
+// Connect to emulators in development (except Auth - always use live)
+if (USE_EMULATORS) {
+  console.log('🔧 Using Firebase Emulators (Auth uses live)');
+  connectFirestoreEmulator(db, 'localhost', 8080);
+  connectFunctionsEmulator(functions, 'localhost', 5001);
+}
+
 // Initialize messaging only in browser with service worker support
+// Note: FCM requires real Firebase project credentials even in emulator mode
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   try {
     messaging = getMessaging(app);
@@ -42,7 +53,12 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
 
 const googleProvider = new GoogleAuthProvider();
 
-export { app, db, auth, functions, messaging, googleProvider };
+export { app, db, auth, functions, messaging, googleProvider, USE_EMULATORS };
+
+// Collection names
+export const Collections = {
+  USERS: 'users',
+} as const;
 
 // Callable functions
 import type { UserProfile } from '@firebase-boilerplate/shared';

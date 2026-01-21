@@ -1,5 +1,5 @@
 import { createContext, useContext, ReactNode } from 'react';
-import { useAuth as useAuthHook, UserProfile } from '@/hooks/useAuth';
+import { useAuth, UserProfile } from '@/hooks/useAuth';
 import { User as FirebaseUser } from 'firebase/auth';
 
 interface AuthContextType {
@@ -15,7 +15,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const auth = useAuthHook();
+  const auth = useAuth();
 
   return (
     <AuthContext.Provider value={auth}>
@@ -24,10 +24,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useAuth() {
+export function useAuthContext() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuthContext must be used within an AuthProvider');
   }
   return context;
 }

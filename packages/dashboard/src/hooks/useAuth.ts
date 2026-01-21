@@ -5,16 +5,24 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
 } from 'firebase/auth';
-import {
-  auth,
-  googleProvider,
-  callGetUserDetails,
-  callManageFcmToken,
-  requestNotificationPermission,
-} from '@/lib/firebase';
-import type { UserProfile } from '@firebase-boilerplate/shared';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { auth, db, googleProvider, callGetUserDetails, Collections } from '@/lib/firebase';
 
-export type { UserProfile };
+export interface UserProfile {
+  // From Firebase Auth
+  userId: string;
+  email: string;
+  displayName: string;
+  photoUrl: string | null;
+  // From Firestore
+  settings: {
+    theme: 'light' | 'dark' | 'system';
+  };
+  notifications: {
+    enabled: boolean;
+    tokenCount: number;
+  };
+}
 
 interface UseAuthResult {
   user: FirebaseUser | null;
@@ -32,102 +40,126 @@ export function useAuth(): UseAuthResult {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   
-  // Track if we've already requested notification permission this session
-  const hasRequestedNotifications = useRef(false);
+  // Keep track of current Firebase user for Firestore subscription
+  const currentUserRef = useRef<FirebaseUser | null>(null);
 
-  // Fetch or create user profile from backend
-  const fetchProfile = useCallback(async (firebaseUser: FirebaseUser): Promise<UserProfile | null> => {
-    try {
-      const result = await callGetUserDetails({
-        email: firebaseUser.email || undefined,
-        displayName: firebaseUser.displayName || undefined,
-        photoUrl: firebaseUser.photoURL || undefined,
-      });
-      return result.data;
-    } catch (err) {
-      console.error('Failed to fetch user profile:', err);
-      setError(err instanceof Error ? err : new Error('Failed to fetch profile'));
-      return null;
-    }
-  }, []);
-
-  // Request notification permission and register FCM token
-  const setupNotifications = useCallback(async () => {
-    if (hasRequestedNotifications.current) return;
-    hasRequestedNotifications.current = true;
-
-    try {
-      console.log('[useAuth] Requesting notification permission...');
-      const token = await requestNotificationPermission();
-      
-      if (token) {
-        console.log('[useAuth] FCM token obtained, registering with backend...');
-        await callManageFcmToken({ token, action: 'register' });
-        console.log('[useAuth] FCM token registered successfully');
-      } else {
-        console.log('[useAuth] No FCM token obtained (permission denied or not supported)');
+  // Subscribe to user profile from Firestore, merging with Firebase Auth data
+  const subscribeToProfile = useCallback((firebaseUser: FirebaseUser): (() => void) => {
+    currentUserRef.current = firebaseUser;
+    const userRef = doc(db, Collections.USERS, firebaseUser.uid);
+    
+    return onSnapshot(
+      userRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          // Merge Firebase Auth data with Firestore data
+          const userProfile: UserProfile = {
+            // From Firebase Auth
+            userId: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            displayName: firebaseUser.displayName || 'User',
+            photoUrl: firebaseUser.photoURL,
+            // From Firestore
+            settings: data.settings || { theme: 'system' },
+            notifications: {
+              enabled: (data.notifications?.fcmTokens?.length || 0) > 0,
+              tokenCount: data.notifications?.fcmTokens?.length || 0,
+            },
+          };
+          setProfile(userProfile);
+        } else {
+          setProfile(null);
+        }
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Error fetching profile:', err);
+        setError(err);
+        setLoading(false);
       }
+    );
+  }, []);
+
+  // Create user profile if it doesn't exist
+  const ensureProfileExists = useCallback(async (): Promise<void> => {
+    try {
+      await callGetUserDetails({});
     } catch (err) {
-      console.error('[useAuth] Failed to setup notifications:', err);
-      // Don't set error state - notifications are optional
+      console.error('Failed to ensure profile exists:', err);
+      setError(err as Error);
     }
   }, []);
 
-  // Refresh profile from backend
-  const refreshProfile = useCallback(async () => {
-    if (!user) return;
-    const newProfile = await fetchProfile(user);
-    if (newProfile) {
-      setProfile(newProfile);
-    }
-  }, [user, fetchProfile]);
-
-  // Listen for auth state changes
+  // Listen to auth state changes and subscribe to profile
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      
-      if (firebaseUser) {
-        // Fetch profile
-        const userProfile = await fetchProfile(firebaseUser);
-        setProfile(userProfile);
+    let unsubscribeProfile: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(
+      auth,
+      async (firebaseUser) => {
+        setUser(firebaseUser);
         
-        // Setup notifications after profile is loaded
-        setupNotifications();
-      } else {
-        setProfile(null);
-        hasRequestedNotifications.current = false;
+        // Cleanup previous profile subscription
+        if (unsubscribeProfile) {
+          unsubscribeProfile();
+          unsubscribeProfile = null;
+        }
+        
+        if (firebaseUser) {
+          // Ensure profile exists (creates if needed)
+          await ensureProfileExists();
+          // Subscribe to profile updates
+          unsubscribeProfile = subscribeToProfile(firebaseUser);
+        } else {
+          setProfile(null);
+          setLoading(false);
+        }
+      },
+      (err) => {
+        console.error('Auth state change error:', err);
+        setError(err);
+        setLoading(false);
       }
-      
-      setLoading(false);
-    });
+    );
 
-    return unsubscribe;
-  }, [fetchProfile, setupNotifications]);
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+      }
+    };
+  }, [subscribeToProfile, ensureProfileExists]);
 
-  const signInWithGoogle = useCallback(async () => {
-    setError(null);
+  const signInWithGoogle = async () => {
     try {
+      setError(null);
+      setLoading(true);
+      
+      // Sign in with Google - profile subscription handled by auth state listener
       await signInWithPopup(auth, googleProvider);
     } catch (err) {
-      console.error('Sign in failed:', err);
-      setError(err instanceof Error ? err : new Error('Sign in failed'));
+      setError(err as Error);
+      setLoading(false);
       throw err;
     }
-  }, []);
+  };
 
-  const signOut = useCallback(async () => {
-    setError(null);
+  const signOut = async () => {
     try {
+      setError(null);
       await firebaseSignOut(auth);
       setProfile(null);
-      hasRequestedNotifications.current = false;
     } catch (err) {
-      console.error('Sign out failed:', err);
-      setError(err instanceof Error ? err : new Error('Sign out failed'));
+      setError(err as Error);
       throw err;
     }
-  }, []);
+  };
+
+  const refreshProfile = async () => {
+    // Profile updates automatically via Firestore subscription
+    // This function is kept for API compatibility but is now a no-op
+  };
 
   return {
     user,
