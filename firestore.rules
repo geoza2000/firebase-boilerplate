@@ -13,9 +13,25 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Helper: Check if user owns the document (for userId field)
-    function ownsDocument() {
-      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    // Users collection
+    // - Users can read their own document
+    // - User documents are created/updated by backend (Cloud Functions with Admin SDK)
+    // - Client can only update settings.theme field
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      
+      // User documents are created by backend via getUserDetails callable function
+      allow create: if false;
+      
+      // Users can only update their settings (theme preference)
+      // All other fields (notifications, lastLoginAt, etc.) are managed by backend
+      allow update: if isOwner(userId) && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'settings',
+          'updatedAt'
+        ]);
+      
+      allow delete: if false;
     }
   }
 }

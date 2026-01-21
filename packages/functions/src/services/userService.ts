@@ -17,8 +17,8 @@ import {
 const USERS_COLLECTION = 'users';
 
 /**
- * Create a new user when they first sign in
- * Returns existing user if already exists
+ * Create a new user when they first sign in, or update lastLoginAt if exists
+ * Always updates lastLoginAt on every call
  */
 export async function createUser(input: CreateUserInput): Promise<User> {
   const now = new Date();
@@ -27,16 +27,22 @@ export async function createUser(input: CreateUserInput): Promise<User> {
   // Check if user already exists
   const existing = await docRef.get();
   if (existing.exists) {
-    return documentToUser(existing.data() as UserDocument);
+    // Update lastLoginAt and return existing user
+    await docRef.update({
+      lastLoginAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    });
+    const user = documentToUser(existing.data() as UserDocument);
+    user.lastLoginAt = now;
+    user.updatedAt = now;
+    return user;
   }
 
   const user: User = {
     userId: input.userId,
-    email: input.email,
-    displayName: input.displayName,
-    photoUrl: input.photoUrl || null,
     settings: getDefaultUserSettings(),
     notifications: getDefaultNotificationSettings(),
+    lastLoginAt: now,
     createdAt: now,
     updatedAt: now,
   };

@@ -8,29 +8,25 @@ export interface UserSettings {
 // Notification settings
 export interface NotificationSettings {
   fcmTokens: string[];
-  emailNotifications: boolean;
 }
 
-// Core User interface
+// Core User interface (stored in Firestore)
+// Note: email, displayName and photoUrl come from Firebase Auth SDK, not stored here
 export interface User {
   userId: string;
-  email: string;
-  displayName: string;
-  photoUrl: string | null;
   settings: UserSettings;
   notifications: NotificationSettings;
+  lastLoginAt: Date;
   createdAt: Date;
   updatedAt: Date;
 }
 
-// User document for Firestore
+// User document for Firestore (ISO date strings)
 export interface UserDocument {
   userId: string;
-  email: string;
-  displayName: string;
-  photoUrl: string | null;
   settings: UserSettings;
   notifications: NotificationSettings;
+  lastLoginAt: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -38,22 +34,18 @@ export interface UserDocument {
 // Create user input
 export interface CreateUserInput {
   userId: string;
-  email: string;
-  displayName: string;
-  photoUrl?: string | null;
 }
 
-// User profile returned to client (excludes sensitive data)
+// User profile returned to client (excludes sensitive data like fcmTokens)
+// Note: email, displayName and photoUrl should be merged from Firebase Auth on the client
 export interface UserProfile {
   userId: string;
-  email: string;
-  displayName: string;
-  photoUrl: string | null;
   settings: UserSettings;
   notifications: {
     enabled: boolean;
     tokenCount: number;
   };
+  lastLoginAt: string;
 }
 
 // Zod schemas
@@ -63,20 +55,17 @@ export const UserSettingsSchema = z.object({
 
 export const NotificationSettingsSchema = z.object({
   fcmTokens: z.array(z.string()),
-  emailNotifications: z.boolean(),
 });
 
 export const CreateUserSchema = z.object({
   userId: z.string().min(1),
-  email: z.string().email(),
-  displayName: z.string().min(1),
-  photoUrl: z.string().nullable().optional(),
 });
 
 // Helper functions
 export function userToDocument(user: User): UserDocument {
   return {
     ...user,
+    lastLoginAt: user.lastLoginAt.toISOString(),
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };
@@ -86,6 +75,7 @@ export function documentToUser(doc: UserDocument): User {
   return {
     ...doc,
     notifications: doc.notifications || getDefaultNotificationSettings(),
+    lastLoginAt: new Date(doc.lastLoginAt),
     createdAt: new Date(doc.createdAt),
     updatedAt: new Date(doc.updatedAt),
   };
@@ -98,20 +88,17 @@ export function getDefaultUserSettings(): UserSettings {
 export function getDefaultNotificationSettings(): NotificationSettings {
   return {
     fcmTokens: [],
-    emailNotifications: false,
   };
 }
 
 export function userToProfile(user: User): UserProfile {
   return {
     userId: user.userId,
-    email: user.email,
-    displayName: user.displayName,
-    photoUrl: user.photoUrl,
     settings: user.settings,
     notifications: {
       enabled: user.notifications.fcmTokens.length > 0,
       tokenCount: user.notifications.fcmTokens.length,
     },
+    lastLoginAt: user.lastLoginAt.toISOString(),
   };
 }

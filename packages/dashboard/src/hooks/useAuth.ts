@@ -9,8 +9,9 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db, googleProvider, callGetUserDetails, Collections } from '@/lib/firebase';
 
 export interface UserProfile {
-  // From Firebase Auth
+  // Core identity
   userId: string;
+  // From Firebase Auth SDK (not stored in DB)
   email: string;
   displayName: string;
   photoUrl: string | null;
@@ -22,6 +23,7 @@ export interface UserProfile {
     enabled: boolean;
     tokenCount: number;
   };
+  lastLoginAt: string | null;
 }
 
 interface UseAuthResult {
@@ -54,9 +56,11 @@ export function useAuth(): UseAuthResult {
         if (snapshot.exists()) {
           const data = snapshot.data();
           // Merge Firebase Auth data with Firestore data
+          // Note: email, displayName and photoUrl come from Firebase Auth, NOT stored in DB
           const userProfile: UserProfile = {
-            // From Firebase Auth
+            // Core identity
             userId: firebaseUser.uid,
+            // From Firebase Auth SDK (not stored in DB)
             email: firebaseUser.email || '',
             displayName: firebaseUser.displayName || 'User',
             photoUrl: firebaseUser.photoURL,
@@ -66,6 +70,7 @@ export function useAuth(): UseAuthResult {
               enabled: (data.notifications?.fcmTokens?.length || 0) > 0,
               tokenCount: data.notifications?.fcmTokens?.length || 0,
             },
+            lastLoginAt: data.lastLoginAt || null,
           };
           setProfile(userProfile);
         } else {
