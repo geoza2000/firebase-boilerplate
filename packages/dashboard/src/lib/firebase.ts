@@ -45,6 +45,13 @@ const googleProvider = new GoogleAuthProvider();
 export { app, db, auth, functions, messaging, googleProvider };
 
 // Callable functions
+import type { UserProfile } from '@firebase-boilerplate/shared';
+
+export const callGetUserDetails = httpsCallable<
+  { email?: string; displayName?: string; photoUrl?: string },
+  UserProfile
+>(functions, 'getUserDetails');
+
 export const callManageFcmToken = httpsCallable<
   { token: string; action?: 'register' | 'unregister' },
   { success: boolean }
