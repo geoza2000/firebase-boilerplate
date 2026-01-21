@@ -1,0 +1,31 @@
+{
+  "name": "$$PROJECT_NAME$$",
+  "version": "1.0.0",
+  "private": true,
+  "description": "$$PROJECT_DESCRIPTION$$",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @$$PROJECT_NAME$$/dashboard",
+    "dev:website": "npm run dev -w @$$PROJECT_NAME$$/website",
+    "build": "npm run build -ws",
+    "build:shared": "npm run build -w @$$PROJECT_NAME$$/shared",
+    "build:functions": "npm run build -w @$$PROJECT_NAME$$/functions",
+    "build:dashboard": "npm run build -w @$$PROJECT_NAME$$/dashboard",
+    "build:website": "npm run build -w @$$PROJECT_NAME$$/website",
+    "sync:functions": "npm run sync -w @$$PROJECT_NAME$$/functions",
+    "emulate": "npm run build:shared && npm run sync:functions && npm run build:functions && npx firebase-tools emulators:start --only firestore,functions",
+    "deploy": "npx firebase-tools deploy",
+    "deploy:functions": "npx firebase-tools deploy --only functions",
+    "deploy:hosting": "npx firebase-tools deploy --only hosting",
+    "lint": "npm run lint -ws --if-present",
+    "typecheck": "npm run typecheck -ws --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
