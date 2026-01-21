@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { Loader2 } from 'lucide-react';
+import { Toaster } from '@/components/ui/toaster';
+import { FcmTokenSync, NotificationListener, NotificationPrompt } from '@/components/notifications';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -19,23 +21,37 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {/* Sync FCM token when authenticated */}
+      <FcmTokenSync />
+      {children}
+    </>
+  );
 }
 
 function AppRoutes() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <DashboardPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      {/* Listen for foreground notifications */}
+      <NotificationListener />
+      
+      {/* Prompt for notification permission (PWA only) */}
+      <NotificationPrompt />
+      
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }
 
@@ -43,6 +59,7 @@ function App() {
   return (
     <AuthProvider>
       <AppRoutes />
+      <Toaster />
     </AuthProvider>
   );
 }

@@ -1,7 +1,9 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore, connectFirestoreEmulator } from 'firebase/firestore';
-import { getAuth, Auth, GoogleAuthProvider, connectAuthEmulator } from 'firebase/auth';
-import { getAnalytics, Analytics, isSupported } from 'firebase/analytics';
+import { getFirestore, Firestore } from 'firebase/firestore';
+import { getAuth, Auth, GoogleAuthProvider } from 'firebase/auth';
+import { getFunctions, Functions, httpsCallable } from 'firebase/functions';
+import { getMessaging, Messaging, getToken, onMessage } from 'firebase/messaging';
+import { getFirebaseMessagingSwRegistration } from './serviceWorkerManager';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -13,12 +15,11 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-const useEmulators = import.meta.env.VITE_USE_EMULATORS === 'true';
-
 let app: FirebaseApp;
 let db: Firestore;
 let auth: Auth;
-let analytics: Analytics | null = null;
+let functions: Functions;
+let messaging: Messaging | null = null;
 
 if (getApps().length === 0) {
   app = initializeApp(firebaseConfig);
@@ -28,23 +29,188 @@ if (getApps().length === 0) {
 
 db = getFirestore(app);
 auth = getAuth(app);
+functions = getFunctions(app, 'us-central1');
 
-// Connect to emulators if enabled
-if (useEmulators) {
-  connectFirestoreEmulator(db, 'localhost', 8080);
-  connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-  console.log('🔧 Using Firebase emulators');
-}
-
-// Initialize analytics (only in production and if supported)
-if (!useEmulators && firebaseConfig.measurementId) {
-  isSupported().then((supported) => {
-    if (supported) {
-      analytics = getAnalytics(app);
-    }
-  });
+// Initialize messaging only in browser with service worker support
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  try {
+    messaging = getMessaging(app);
+  } catch (e) {
+    console.warn('Firebase Messaging not supported:', e);
+  }
 }
 
 const googleProvider = new GoogleAuthProvider();
 
-export { app, db, auth, analytics, googleProvider };
+export { app, db, auth, functions, messaging, googleProvider };
+
+// Callable functions
+export const callManageFcmToken = httpsCallable<
+  { token: string; action?: 'register' | 'unregister' },
+  { success: boolean }
+>(functions, 'manageFcmToken');
+
+export const callSendTestNotification = httpsCallable<
+  { currentToken?: string },
+  { success: boolean; tokenFound: boolean; totalTokens: number; successCount: number; failureCount: number }
+>(functions, 'sendTestNotification');
+
+// FCM Token management
+export async function requestNotificationPermission(): Promise<string | null> {
+  if (!messaging) {
+    console.warn('Messaging not available');
+    return null;
+  }
+
+  try {
+    const permission = await Notification.requestPermission();
+    console.log('Notification permission:', permission);
+
+    if (permission !== 'granted') {
+      console.warn('Notification permission not granted:', permission);
+      return null;
+    }
+
+    const swRegistration = await getFirebaseMessagingSwRegistration();
+    if (!swRegistration) {
+      console.error('Firebase Messaging service worker not available');
+      return null;
+    }
+
+    const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+    if (!vapidKey) {
+      console.error('VAPID key is not configured');
+      return null;
+    }
+
+    console.log('Requesting FCM token...');
+    const token = await getToken(messaging, {
+      vapidKey,
+      serviceWorkerRegistration: swRegistration,
+    });
+
+    if (token) {
+      console.log('FCM token obtained:', token.substring(0, 20) + '...');
+    } else {
+      console.warn('No FCM token received');
+    }
+
+    return token;
+  } catch (error) {
+    console.error('Failed to get FCM token:', error);
+    return null;
+  }
+}
+
+export async function getCurrentFcmToken(): Promise<string | null> {
+  if (!messaging) {
+    console.warn('Messaging not available');
+    return null;
+  }
+
+  try {
+    if (Notification.permission !== 'granted') {
+      console.log('Notification permission not granted');
+      return null;
+    }
+
+    const swRegistration = await getFirebaseMessagingSwRegistration();
+    if (!swRegistration) {
+      console.error('Firebase Messaging service worker not available');
+      return null;
+    }
+
+    const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+    if (!vapidKey) {
+      console.error('VAPID key is not configured');
+      return null;
+    }
+
+    const token = await getToken(messaging, {
+      vapidKey,
+      serviceWorkerRegistration: swRegistration,
+    });
+
+    return token;
+  } catch (error) {
+    console.error('Failed to get current FCM token:', error);
+    return null;
+  }
+}
+
+export function onForegroundMessage(callback: (payload: unknown) => void) {
+  if (!messaging) return () => {};
+  return onMessage(messaging, callback);
+}
+
+/**
+ * Result of FCM token sync operation
+ */
+export interface FcmTokenSyncResult {
+  success: boolean;
+  action: 'none' | 'registered' | 'error';
+  token: string | null;
+  message: string;
+}
+
+/**
+ * Sync FCM token with the server
+ * 
+ * This ensures the current device's FCM token is registered with the server.
+ * The backend handles deduplication, so we can safely call this on every app load.
+ * 
+ * This should be called:
+ * - On app load (when notifications are enabled)
+ * - After service worker updates (which may invalidate the old token)
+ */
+export async function syncFcmToken(): Promise<FcmTokenSyncResult> {
+  console.log('[FCM Sync] Starting token sync...');
+
+  // Check if notifications are supported and permission is granted
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+    console.log('[FCM Sync] Notifications not granted, skipping sync');
+    return {
+      success: true,
+      action: 'none',
+      token: null,
+      message: 'Notifications not granted',
+    };
+  }
+
+  try {
+    // Get current FCM token from Firebase
+    const currentToken = await getCurrentFcmToken();
+    
+    if (!currentToken) {
+      console.log('[FCM Sync] No current token available');
+      return {
+        success: true,
+        action: 'none',
+        token: null,
+        message: 'No token available',
+      };
+    }
+
+    console.log('[FCM Sync] Current token:', currentToken.substring(0, 20) + '...');
+
+    // Register the token with the server
+    // The backend handles deduplication - it will update if token exists or add if new
+    await callManageFcmToken({ token: currentToken, action: 'register' });
+
+    console.log('[FCM Sync] Token registered/synced successfully');
+    return {
+      success: true,
+      action: 'registered',
+      token: currentToken,
+      message: 'Token synced with server',
+    };
+  } catch (error) {
+    console.error('[FCM Sync] Error syncing token:', error);
+    return {
+      success: false,
+      action: 'error',
+      token: null,
+      message: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}

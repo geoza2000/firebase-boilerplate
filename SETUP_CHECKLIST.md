@@ -33,6 +33,7 @@ These go in `packages/dashboard/.env.production` (create a separate web app in F
 | `$$FIREBASE_DASHBOARD_MESSAGING_SENDER_ID$$` | Project Settings → Cloud Messaging |
 | `$$FIREBASE_DASHBOARD_APP_ID$$` | Project Settings → Web App (Dashboard) |
 | `$$FIREBASE_DASHBOARD_MEASUREMENT_ID$$` | Project Settings → Web App (optional) |
+| `$$FIREBASE_DASHBOARD_VAPID_KEY$$` | Project Settings → Cloud Messaging → Web Push certificates |
 
 ### Firebase Website App Config
 
@@ -83,6 +84,7 @@ sed -i '' 's/\$\$FIREBASE_DASHBOARD_STORAGE_BUCKET\$\$/your-project.appspot.com/
 sed -i '' 's/\$\$FIREBASE_DASHBOARD_MESSAGING_SENDER_ID\$\$/your-sender-id/g' packages/dashboard/.env.production
 sed -i '' 's/\$\$FIREBASE_DASHBOARD_APP_ID\$\$/your-app-id/g' packages/dashboard/.env.production
 sed -i '' 's/\$\$FIREBASE_DASHBOARD_MEASUREMENT_ID\$\$/G-XXXXXXXXXX/g' packages/dashboard/.env.production
+sed -i '' 's/\$\$FIREBASE_DASHBOARD_VAPID_KEY\$\$/your-vapid-key/g' packages/dashboard/.env.production
 
 # Website Firebase config (in .env.production)
 sed -i '' 's/\$\$FIREBASE_WEBSITE_API_KEY\$\$/your-api-key/g' packages/website/.env.production
