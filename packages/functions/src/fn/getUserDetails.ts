@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
-import { createUser } from '../services/userService';
+import { createUser } from '../services';
 import { userToProfile } from '@firebase-boilerplate/shared';
 import type { CreateUserInput } from '@firebase-boilerplate/shared';
 import '../admin'; // Ensure admin is initialized

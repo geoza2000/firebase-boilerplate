@@ -1,10 +1,13 @@
+// Notification service
 export {
   sendNotification,
   sendNotificationToUser,
   type SendNotificationOptions,
   type SendNotificationResult,
-} from './notificationService';
+  type SendNotificationToUserResult,
+} from './notification';
 
+// User service
 export {
   createUser,
   getUserById,
@@ -13,4 +16,4 @@ export {
   removeFcmToken,
   removeInvalidFcmTokens,
   updateUserSettings,
-} from './userService';
+} from './user';

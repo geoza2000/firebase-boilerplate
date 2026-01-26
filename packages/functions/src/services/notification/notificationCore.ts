@@ -1,50 +1,11 @@
 import { logger } from 'firebase-functions/v2';
-import { admin, db } from '../admin';
-
-// FCM error codes that indicate a token is invalid and should be removed
-const INVALID_TOKEN_ERROR_CODES = [
-  'messaging/invalid-registration-token',
-  'messaging/registration-token-not-registered',
-];
-
-/**
- * Options for sending a notification
- */
-export interface SendNotificationOptions {
-  /** Notification title */
-  title: string;
-  /** Notification body/description */
-  body: string;
-  /** Deep link path for when notification is clicked (e.g., '/dashboard', '/invoices/123') */
-  deepLink?: string;
-  /** Notification type for client-side handling (e.g., 'test', 'invoice_processed', 'reminder') */
-  type?: string;
-  /** Icon URL (defaults to '/logo-192.png') */
-  icon?: string;
-  /** Badge URL for web push (defaults to '/logo-192.png') */
-  badge?: string;
-  /** Whether the notification requires user interaction to dismiss */
-  requireInteraction?: boolean;
-  /** Priority level */
-  priority?: 'high' | 'normal';
-  /** Android notification channel ID */
-  androidChannelId?: string;
-  /** Additional custom data to include */
-  data?: Record<string, string>;
-  /** Optional notification ID for tracking */
-  notificationId?: string;
-}
-
-/**
- * Result of sending notifications
- */
-export interface SendNotificationResult {
-  success: boolean;
-  totalTokens: number;
-  successCount: number;
-  failureCount: number;
-  invalidTokensRemoved: number;
-}
+import { admin, db } from '../../admin';
+import { INVALID_TOKEN_ERROR_CODES, DEFAULT_NOTIFICATION_CONFIG } from './constants';
+import type {
+  SendNotificationOptions,
+  SendNotificationResult,
+  SendNotificationToUserResult,
+} from './types';
 
 /**
  * Build a multicast message from notification options
@@ -56,13 +17,13 @@ function buildMulticastMessage(
   const {
     title,
     body,
-    deepLink = '/',
-    type = 'notification',
-    icon = '/logo-192.png',
-    badge = '/logo-192.png',
-    requireInteraction = false,
-    priority = 'high',
-    androidChannelId = 'default',
+    deepLink = DEFAULT_NOTIFICATION_CONFIG.deepLink,
+    type = DEFAULT_NOTIFICATION_CONFIG.type,
+    icon = DEFAULT_NOTIFICATION_CONFIG.icon,
+    badge = DEFAULT_NOTIFICATION_CONFIG.badge,
+    requireInteraction = DEFAULT_NOTIFICATION_CONFIG.requireInteraction,
+    priority = DEFAULT_NOTIFICATION_CONFIG.priority,
+    androidChannelId = DEFAULT_NOTIFICATION_CONFIG.androidChannelId,
     data = {},
     notificationId,
   } = options;
@@ -255,7 +216,7 @@ export async function sendNotification(
 export async function sendNotificationToUser(
   userId: string,
   options: SendNotificationOptions
-): Promise<SendNotificationResult & { tokensFound: boolean }> {
+): Promise<SendNotificationToUserResult> {
   const userDoc = await db.collection('users').doc(userId).get();
 
   if (!userDoc.exists) {

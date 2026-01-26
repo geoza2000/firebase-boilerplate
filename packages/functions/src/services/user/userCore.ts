@@ -1,5 +1,5 @@
 import { FieldValue } from 'firebase-admin/firestore';
-import { db } from '../admin';
+import { db } from '../../admin';
 import type {
   User,
   UserDocument,
@@ -13,8 +13,7 @@ import {
   getDefaultUserSettings,
   getDefaultNotificationSettings,
 } from '@firebase-boilerplate/shared';
-
-const USERS_COLLECTION = 'users';
+import { USERS_COLLECTION } from './constants';
 
 /**
  * Create a new user when they first sign in, or update lastLoginAt if exists

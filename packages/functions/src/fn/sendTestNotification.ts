@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { db } from '../admin';
-import { sendNotification } from '../services/notificationService';
+import { sendNotification } from '../services';
 
 interface UserData {
   notifications?: {
