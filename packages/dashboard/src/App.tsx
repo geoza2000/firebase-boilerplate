@@ -1,4 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '@/lib/queryClient';
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
 import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
@@ -59,12 +61,14 @@ function AuthenticatedFcmComponents() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppRoutes />
-      <Toaster />
-      <NotificationPrompt />
-      <AuthenticatedFcmComponents />
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <AppRoutes />
+        <Toaster />
+        <NotificationPrompt />
+        <AuthenticatedFcmComponents />
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
 

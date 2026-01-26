@@ -21,7 +21,7 @@ This document provides guidelines for AI agents working on this Firebase monorep
 ## Code Organization Rules
 
 ### 1. File Size Limits
-- **Maximum 500 lines** for frontend files
+- **Maximum 500 lines** for files
 - Extract components into separate files when approaching limit
 - Use barrel exports (`index.ts`) for clean imports
 
@@ -35,18 +35,28 @@ src/fn/
 ```
 
 ### 3. Services: Domain Separation
-Each service handles ONE business domain:
+Each service handles ONE business domain and uses a **folder structure**:
 ```
 src/services/
-├── userService.ts    # User operations only
-├── itemService.ts    # Item operations only
-└── emailService.ts   # Email operations only
+├── user/
+│   ├── constants.ts      # CONSTS, secrets definitions, config values
+│   ├── messages.ts       # Dictionary and user-facing messages (if applicable)
+│   ├── types.ts          # Service-specific types (shared types go in @$$PROJECT_NAME$$/shared)
+│   ├── userCore.ts       # Core user operations (split when exceeding 500 lines)
+│   └── userValidation.ts # Validation logic (splited file bacause userCore exceeded 500 lines)
+├── email/
+│   ├── constants.ts
+│   ├── messages.ts
+│   └── emailSender.ts
+└── index.ts              # Barrel exports
 ```
 
 **Rules:**
 - Services should NOT import from other services
 - Functions orchestrate multiple services
 - Shared logic goes in utility files
+- Split service logic into multiple files if exceeding 500 lines
+- Shared types MUST be in `@$$PROJECT_NAME$$/shared`, service-specific types stay local
 
 ### 4. Shared Package
 Types shared between frontend and backend live in `@$$PROJECT_NAME$$/shared`:
@@ -75,6 +85,41 @@ src/components/
 ├── ui/           # shadcn components
 ├── [feature]/    # Feature-specific components
 ```
+
+### Data Fetching with React Query
+All Firebase function calls MUST use React Query in dedicated hook files:
+```
+src/hooks/
+├── queries/
+│   ├── useUserQuery.ts       # User-related queries
+│   ├── useItemsQuery.ts      # Item-related queries
+│   └── index.ts              # Barrel exports
+├── mutations/
+│   ├── useCreateItem.ts      # Mutation hooks
+│   └── index.ts
+└── index.ts
+```
+
+**Rules:**
+- One hook file per domain/feature
+- Use optimized cache invalidation with proper `queryKey` patterns
+- Leverage `staleTime`, `cacheTime`, and `refetchOnWindowFocus` appropriately
+- Group related queries in the same file
+- Export query keys for reuse in invalidations
+
+### Client State with Zustand
+Use Zustand stores for client-side state (UI state, optimistic updates):
+```
+src/stores/
+├── uiStore.ts           # UI state (modals, sidebars, etc.)
+├── [feature]Store.ts    # Feature-specific client state
+└── index.ts             # Barrel exports
+```
+
+**Rules:**
+- React Query handles server state, Zustand handles client state
+- Use Zustand for cross-component state sharing
+- Implement optimistic updates with error rollback
 
 ---
 
