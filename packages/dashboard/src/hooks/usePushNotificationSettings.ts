@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  requestNotificationPermission, 
-  callManageFcmToken,
-  callSendTestNotification,
-  getCurrentFcmToken,
-  syncFcmToken,
-} from '@/lib/firebase';
+import { getCurrentFcmToken, syncFcmToken } from '@/lib/firebase';
 import { onServiceWorkerUpdate } from '@/lib/serviceWorkerManager';
 import { useToast } from './useToast';
+import { 
+  useRegisterFcmToken, 
+  useUnregisterFcmToken, 
+  useSendTestNotification 
+} from './mutations';
 
 interface UsePushNotificationSettingsOptions {
   userId: string | null;
@@ -30,7 +29,6 @@ export function usePushNotificationSettings({
 }: UsePushNotificationSettingsOptions): UsePushNotificationSettingsResult {
   const { toast } = useToast();
   
-  const [isLoading, setIsLoading] = useState(false);
   const [isEnabled, setIsEnabled] = useState(false);
   const [browserPermission, setBrowserPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
@@ -38,6 +36,14 @@ export function usePushNotificationSettings({
   
   // Store current device's token
   const currentTokenRef = useRef<string | null>(null);
+
+  // React Query mutations
+  const registerMutation = useRegisterFcmToken();
+  const unregisterMutation = useUnregisterFcmToken();
+  const sendTestMutation = useSendTestNotification();
+
+  // Combined loading state from all mutations
+  const isLoading = registerMutation.isPending || unregisterMutation.isPending;
 
   // Check notification status on mount and when permission changes
   // Also sync token with server to handle PWA updates that might have invalidated the token
@@ -104,120 +110,80 @@ export function usePushNotificationSettings({
 
   const enable = useCallback(async () => {
     if (!userId) return;
+
+    const result = await registerMutation.mutateAsync();
     
-    setIsLoading(true);
-    try {
-      // Request browser permission and get token
-      const token = await requestNotificationPermission();
-      
-      // Update browser permission state
-      if (typeof Notification !== 'undefined') {
-        setBrowserPermission(Notification.permission);
-      }
-      
-      if (!token) {
-        toast({
-          variant: 'destructive',
-          title: 'Permission Denied',
-          description: Notification.permission === 'denied' 
-            ? 'Notifications are blocked. Please enable them in your browser settings.'
-            : 'Could not get notification permission. Make sure VAPID key is configured.',
-        });
-        return;
-      }
+    // Update browser permission state
+    if (typeof Notification !== 'undefined') {
+      setBrowserPermission(Notification.permission);
+    }
 
-      // Store token and register with backend
-      currentTokenRef.current = token;
-      await callManageFcmToken({ token, action: 'register' });
-      setIsEnabled(true);
-
-      toast({
-        title: 'Notifications Enabled',
-        description: 'You will receive push notifications.',
-      });
-    } catch (error) {
-      console.error('Failed to enable notifications:', error);
+    if (!result.success) {
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to enable notifications. Check console for details.',
+        title: 'Permission Denied',
+        description: result.permissionDenied
+          ? 'Notifications are blocked. Please enable them in your browser settings.'
+          : 'Could not get notification permission. Make sure VAPID key is configured.',
       });
-    } finally {
-      setIsLoading(false);
+      return;
     }
-  }, [userId, toast]);
+
+    // Store token and update state
+    currentTokenRef.current = result.token;
+    setIsEnabled(true);
+
+    toast({
+      title: 'Notifications Enabled',
+      description: 'You will receive push notifications.',
+    });
+  }, [userId, registerMutation, toast]);
 
   const disable = useCallback(async () => {
     if (!userId) return;
-    
-    setIsLoading(true);
-    try {
-      // Get current token (from cache or fetch)
-      let token = currentTokenRef.current;
-      if (!token) {
-        token = await getCurrentFcmToken();
-      }
-      
-      if (!token) {
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'Could not get device token to unregister.',
-        });
-        return;
-      }
 
-      // Unregister token with backend
-      await callManageFcmToken({ token, action: 'unregister' });
-      currentTokenRef.current = null;
-      setIsEnabled(false);
+    const result = await unregisterMutation.mutateAsync(currentTokenRef.current);
 
-      toast({
-        title: 'Notifications Disabled',
-        description: 'You will no longer receive push notifications on this device.',
-      });
-    } catch (error) {
-      console.error('Failed to disable notifications:', error);
+    if (!result.success) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to disable notifications.',
+        description: 'Could not get device token to unregister.',
       });
-    } finally {
-      setIsLoading(false);
+      return;
     }
-  }, [userId, toast]);
+
+    currentTokenRef.current = null;
+    setIsEnabled(false);
+
+    toast({
+      title: 'Notifications Disabled',
+      description: 'You will no longer receive push notifications on this device.',
+    });
+  }, [userId, unregisterMutation, toast]);
 
   const sendTest = useCallback(async () => {
     try {
-      // Get current token to send to server for validation
-      let token = currentTokenRef.current;
-      if (!token) {
-        token = await getCurrentFcmToken();
-        currentTokenRef.current = token;
-      }
-      
-      console.log('Sending test notification...');
-      console.log('Current FCM token:', token?.substring(0, 20) + '...');
       console.log('User ID:', userId);
       
-      // Send current token to server so it can verify it's registered
-      const result = await callSendTestNotification({ currentToken: token || undefined });
-      console.log('Test notification result:', result);
-      
+      const result = await sendTestMutation.mutateAsync({ 
+        cachedToken: currentTokenRef.current 
+      });
+
+      // Update cached token
+      currentTokenRef.current = result.currentToken;
+
       // Check if the result indicates token issues
-      const data = result.data;
-      
-      if (data.success && !data.tokenFound && token) {
+      if (result.success && !result.tokenFound && result.currentToken) {
         toast({
           variant: 'destructive',
           title: 'Token Not Registered',
-          description: `Your device token is not registered. Try disabling and re-enabling notifications. (${data.successCount}/${data.totalTokens} tokens succeeded)`,
+          description: `Your device token is not registered. Try disabling and re-enabling notifications. (${result.successCount}/${result.totalTokens} tokens succeeded)`,
         });
-      } else if (data.success) {
+      } else if (result.success) {
         toast({
           title: 'Test Sent',
-          description: `Notification sent to ${data.successCount} device(s). Check your device for the notification.`,
+          description: `Notification sent to ${result.successCount} device(s). Check your device for the notification.`,
         });
       } else {
         toast({
@@ -241,7 +207,7 @@ export function usePushNotificationSettings({
         description: 'Failed to send test notification. Check console for logs.',
       });
     }
-  }, [toast, userId]);
+  }, [sendTestMutation, toast, userId]);
 
   return {
     browserPermission,

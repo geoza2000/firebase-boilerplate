@@ -58,4 +58,11 @@ export const queryKeys = {
     all: ['health'] as const,
     check: () => [...queryKeys.health.all, 'check'] as const,
   },
+
+  // Notifications
+  notifications: {
+    all: ['notifications'] as const,
+    fcmToken: () => [...queryKeys.notifications.all, 'fcmToken'] as const,
+    settings: () => [...queryKeys.notifications.all, 'settings'] as const,
+  },
 } as const;
