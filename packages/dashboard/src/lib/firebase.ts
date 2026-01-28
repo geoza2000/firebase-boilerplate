@@ -61,7 +61,7 @@ export const Collections = {
 } as const;
 
 // Callable functions
-import type { UserProfile } from '@firebase-boilerplate/shared';
+import type { UserProfile } from '@$$PROJECT_NAME$$/shared';
 
 export const callGetUserDetails = httpsCallable<
   { email?: string; displayName?: string; photoUrl?: string },

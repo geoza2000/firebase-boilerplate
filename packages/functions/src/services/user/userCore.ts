@@ -5,14 +5,14 @@ import type {
   UserDocument,
   CreateUserInput,
   UserProfile,
-} from '@firebase-boilerplate/shared';
+} from '@$$PROJECT_NAME$$/shared';
 import {
   documentToUser,
   userToDocument,
   userToProfile,
   getDefaultUserSettings,
   getDefaultNotificationSettings,
-} from '@firebase-boilerplate/shared';
+} from '@$$PROJECT_NAME$$/shared';
 import { USERS_COLLECTION } from './constants';
 
 /**
