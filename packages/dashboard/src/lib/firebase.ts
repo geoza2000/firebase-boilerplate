@@ -3,6 +3,11 @@ import { getFirestore, Firestore, connectFirestoreEmulator } from 'firebase/fire
 import { getAuth, Auth, GoogleAuthProvider } from 'firebase/auth';
 import { getFunctions, Functions, httpsCallable, connectFunctionsEmulator } from 'firebase/functions';
 import { getMessaging, Messaging, getToken, onMessage } from 'firebase/messaging';
+import {
+  initializeAppCheck,
+  ReCaptchaV3Provider,
+  AppCheck,
+} from 'firebase/app-check';
 import { getFirebaseMessagingSwRegistration } from './serviceWorkerManager';
 
 const firebaseConfig = {
@@ -22,6 +27,7 @@ let app: FirebaseApp;
 let db: Firestore;
 let auth: Auth;
 let functions: Functions;
+let appCheck: AppCheck | null = null;
 let messaging: Messaging | null = null;
 
 if (getApps().length === 0) {
@@ -41,6 +47,24 @@ if (USE_EMULATORS) {
   connectFunctionsEmulator(functions, 'localhost', 5001);
 }
 
+// Initialize App Check for callable function protection
+const reCaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+if (reCaptchaSiteKey) {
+  try {
+    appCheck = initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(reCaptchaSiteKey),
+      isTokenAutoRefreshEnabled: true,
+    });
+    console.log('🛡️ App Check initialized');
+  } catch (e) {
+    console.warn('App Check initialization failed:', e);
+  }
+} else if (USE_EMULATORS) {
+  console.log('🔧 App Check: Skipped (no key, emulator mode)');
+} else {
+  console.warn('⚠️ App Check not initialized: VITE_RECAPTCHA_SITE_KEY not set');
+}
+
 // Initialize messaging only in browser with service worker support
 // Note: FCM requires real Firebase project credentials even in emulator mode
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
@@ -53,7 +77,7 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
 
 const googleProvider = new GoogleAuthProvider();
 
-export { app, db, auth, functions, messaging, googleProvider, USE_EMULATORS };
+export { app, db, auth, functions, appCheck, messaging, googleProvider, USE_EMULATORS };
 
 // Collection names
 export const Collections = {

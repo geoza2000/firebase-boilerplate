@@ -25,14 +25,25 @@ This document provides guidelines for AI agents working on this Firebase monorep
 - Extract components into separate files when approaching limit
 - Use barrel exports (`index.ts`) for clean imports
 
-### 2. Functions: One Per File
-Each Cloud Function goes in `packages/functions/src/fn/`:
+### 2. Functions: By Trigger Type, One Per File
+Cloud Functions are grouped by trigger type under `packages/functions/src/`. Use the shared config from `config/functionConfig.ts` (e.g. `CALLABLE_CONFIG`, `HTTPS_CONFIG`).
 ```
-src/fn/
-├── healthCheck.ts    # Single function per file
-├── createItem.ts
-└── processTask.ts
+src/
+├── callable/         # onCall – use CALLABLE_CONFIG (enforceAppCheck: true)
+│   ├── getUserDetails.ts
+│   └── manageFcmToken.ts
+├── https/            # onRequest – use HTTPS_CONFIG
+│   └── healthCheck.ts
+├── firestore/        # onDocumentCreated, onDocumentUpdated, etc. (when added)
+├── scheduler/        # onSchedule (when added)
+├── pubsub/           # onMessagePublished etc. (when added)
+├── config/           # CALLABLE_CONFIG, AUTH_CALLABLE_CONFIG, HTTPS_CONFIG
+├── services/
+├── utils/
+├── admin.ts
+└── index.ts          # Re-export from callable/*, https/*, firestore/*, etc.
 ```
+**Rules:** One function per file. Callables must use `CALLABLE_CONFIG` (or `AUTH_CALLABLE_CONFIG` for auth-sensitive flows). HTTP endpoints use `HTTPS_CONFIG`. `index.ts` only re-exports; no logic there.
 
 ### 3. Services: Domain Separation
 Each service handles ONE business domain and uses a **folder structure**:

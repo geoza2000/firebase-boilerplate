@@ -3,14 +3,10 @@ dotenv.config();
 
 import './admin';
 
-// Health check
-export { healthCheck } from './fn/healthCheck';
+// Callable (onCall)
+export { getUserDetails } from './callable/getUserDetails';
+export { manageFcmToken } from './callable/manageFcmToken';
+export { sendTestNotification } from './callable/sendTestNotification';
 
-// User management
-export { getUserDetails } from './fn/getUserDetails';
-
-// FCM Token management
-export { manageFcmToken } from './fn/manageFcmToken';
-
-// Test notification
-export { sendTestNotification } from './fn/sendTestNotification';
+// HTTP (onRequest)
+export { healthCheck } from './https/healthCheck';

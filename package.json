@@ -20,9 +20,13 @@
     "deploy:functions": "npx firebase-tools deploy --only functions",
     "deploy:hosting": "npx firebase-tools deploy --only hosting",
     "lint": "npm run lint -ws --if-present",
-    "typecheck": "npm run typecheck -ws --if-present"
+    "typecheck": "npm run typecheck -ws --if-present",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "@commitlint/cli": "^19.6.0",
+    "@commitlint/config-conventional": "^19.6.0",
+    "husky": "^9.1.7",
     "typescript": "^5.3.3"
   },
   "engines": {

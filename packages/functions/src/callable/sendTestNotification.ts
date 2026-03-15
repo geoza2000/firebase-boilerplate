@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { db } from '../admin';
 import { sendNotification } from '../services';
+import { CALLABLE_CONFIG } from '../config';
 
 interface UserData {
   notifications?: {
@@ -12,12 +13,9 @@ interface UserData {
 /**
  * Callable function to send test notification
  * Accepts optional currentToken to verify if the device's token is registered
+ * Protected by: Auth, App Check
  */
-export const sendTestNotification = onCall({ 
-  region: 'us-central1',
-  cors: true,
-  invoker: 'public',
-}, async (request) => {
+export const sendTestNotification = onCall(CALLABLE_CONFIG, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Must be authenticated');
   }
@@ -48,7 +46,7 @@ export const sendTestNotification = onCall({
     logger.warn('Current device token NOT FOUND in registered tokens!', {
       userId,
       currentTokenPrefix: currentToken.substring(0, 20) + '...',
-      registeredTokenPrefixes: fcmTokens.map(t => t.substring(0, 20) + '...'),
+      registeredTokenPrefixes: fcmTokens.map((t) => t.substring(0, 20) + '...'),
     });
   }
 

@@ -1,6 +1,7 @@
 import { onRequest } from 'firebase-functions/v2/https';
 import type { HealthCheckResponse } from '@$$PROJECT_NAME$$/shared';
 import { db } from '../admin';
+import { HTTPS_CONFIG } from '../config';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -12,11 +13,9 @@ const VERSION = packageJson.version;
 
 /**
  * Health check endpoint - GET /healthCheck
+ * Public endpoint (no App Check) for load balancers and monitoring.
  */
-export const healthCheck = onRequest({
-  region: 'us-central1',
-  cors: true,
-}, async (_req, res) => {
+export const healthCheck = onRequest(HTTPS_CONFIG, async (_req, res) => {
   let firestoreStatus: HealthCheckResponse['firestore'] = {
     status: 'error',
   };
@@ -44,6 +43,6 @@ export const healthCheck = onRequest({
     version: VERSION,
     firestore: firestoreStatus,
   };
-  
+
   res.status(firestoreStatus.status === 'ok' ? 200 : 503).json(response);
 });

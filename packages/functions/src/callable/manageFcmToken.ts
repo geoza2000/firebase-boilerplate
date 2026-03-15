@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../admin';
+import { CALLABLE_CONFIG } from '../config';
 
 interface ManageFcmTokenRequest {
   token: string;
@@ -12,18 +13,15 @@ interface ManageFcmTokenRequest {
  * Callable function to manage FCM tokens (register or unregister)
  * - action: 'register' adds the token (default)
  * - action: 'unregister' removes the token
+ * Protected by: Auth, App Check
  */
-export const manageFcmToken = onCall({ 
-  region: 'us-central1',
-  cors: true,
-  invoker: 'public',
-}, async (request) => {
+export const manageFcmToken = onCall(CALLABLE_CONFIG, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Must be authenticated');
   }
 
   const { token, action = 'register' } = request.data as ManageFcmTokenRequest;
-  
+
   if (!token || typeof token !== 'string') {
     throw new HttpsError('invalid-argument', 'Token is required');
   }

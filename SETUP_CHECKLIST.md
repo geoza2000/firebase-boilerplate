@@ -34,6 +34,7 @@ These go in `packages/dashboard/.env.production` (create a separate web app in F
 | `$$FIREBASE_DASHBOARD_APP_ID$$` | Project Settings → Web App (Dashboard) |
 | `$$FIREBASE_DASHBOARD_MEASUREMENT_ID$$` | Project Settings → Web App (optional) |
 | `$$FIREBASE_DASHBOARD_VAPID_KEY$$` | Project Settings → Cloud Messaging → Web Push certificates |
+| `$$FIREBASE_RECAPTCHA_SITE_KEY$$` | Firebase Console → App Check → Register app → reCAPTCHA v3 (site key) |
 
 ### Firebase Website App Config
 
@@ -48,6 +49,7 @@ These go in `packages/website/.env.production` (create a separate web app in Fir
 | `$$FIREBASE_WEBSITE_MESSAGING_SENDER_ID$$` | Project Settings → Cloud Messaging |
 | `$$FIREBASE_WEBSITE_APP_ID$$` | Project Settings → Web App (Website) |
 | `$$FIREBASE_WEBSITE_MEASUREMENT_ID$$` | Project Settings → Web App (optional) |
+| `$$FIREBASE_RECAPTCHA_SITE_KEY$$` | Firebase Console → App Check → reCAPTCHA v3 (same or separate app) |
 
 ---
 
@@ -85,6 +87,8 @@ sed -i '' 's/\$\$FIREBASE_DASHBOARD_MESSAGING_SENDER_ID\$\$/your-sender-id/g' pa
 sed -i '' 's/\$\$FIREBASE_DASHBOARD_APP_ID\$\$/your-app-id/g' packages/dashboard/.env.production
 sed -i '' 's/\$\$FIREBASE_DASHBOARD_MEASUREMENT_ID\$\$/G-XXXXXXXXXX/g' packages/dashboard/.env.production
 sed -i '' 's/\$\$FIREBASE_DASHBOARD_VAPID_KEY\$\$/your-vapid-key/g' packages/dashboard/.env.production
+sed -i '' 's/\$\$FIREBASE_RECAPTCHA_SITE_KEY\$\$/your-recaptcha-v3-site-key/g' packages/dashboard/.env.production
+sed -i '' 's/\$\$FIREBASE_RECAPTCHA_SITE_KEY\$\$/your-recaptcha-v3-site-key/g' packages/dashboard/.env.development
 
 # Website Firebase config (in .env.production)
 sed -i '' 's/\$\$FIREBASE_WEBSITE_API_KEY\$\$/your-api-key/g' packages/website/.env.production
@@ -94,6 +98,8 @@ sed -i '' 's/\$\$FIREBASE_WEBSITE_STORAGE_BUCKET\$\$/your-project.appspot.com/g'
 sed -i '' 's/\$\$FIREBASE_WEBSITE_MESSAGING_SENDER_ID\$\$/your-sender-id/g' packages/website/.env.production
 sed -i '' 's/\$\$FIREBASE_WEBSITE_APP_ID\$\$/your-app-id/g' packages/website/.env.production
 sed -i '' 's/\$\$FIREBASE_WEBSITE_MEASUREMENT_ID\$\$/G-XXXXXXXXXX/g' packages/website/.env.production
+sed -i '' 's/\$\$FIREBASE_RECAPTCHA_SITE_KEY\$\$/your-recaptcha-v3-site-key/g' packages/website/.env.production
+sed -i '' 's/\$\$FIREBASE_RECAPTCHA_SITE_KEY\$\$/your-recaptcha-v3-site-key/g' packages/website/.env.development
 ```
 
 ---
@@ -105,6 +111,7 @@ sed -i '' 's/\$\$FIREBASE_WEBSITE_MEASUREMENT_ID\$\$/G-XXXXXXXXXX/g' packages/we
 3. Enable **Cloud Firestore**
 4. Enable **Cloud Functions** (requires Blaze plan)
 5. Add a **Web App** and copy config
+6. Enable **App Check**: Firebase Console → App Check → Register your web app(s) with the **reCAPTCHA v3** provider and copy the reCAPTCHA site key into `VITE_RECAPTCHA_SITE_KEY` (dashboard and website `.env`). Callable functions enforce App Check; the client must send a valid token.
 
 ---
 
