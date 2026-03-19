@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['logo.svg'],
       manifest: {
-        name: '$$PROJECT_TITLE$$',
-        short_name: '$$PROJECT_NAME$$',
+        name: '$$PROJECT_NAME$$',
+        short_name: '$$PROJECT_TITLE$$',
         description: '$$PROJECT_DESCRIPTION$$',
         theme_color: '$$THEME_COLOR$$',
         background_color: '#0f172a',
