@@ -1,5 +1,9 @@
 import { logger } from 'firebase-functions/v2';
-import { admin, db } from '../../admin';
+import { admin } from '../../admin';
+import {
+  deleteInvalidFcmTokens,
+  listFcmTokensForUser,
+} from '../user/fcmTokenStore';
 import { INVALID_TOKEN_ERROR_CODES, DEFAULT_NOTIFICATION_CONFIG } from './constants';
 import type {
   SendNotificationOptions,
@@ -94,29 +98,17 @@ function buildMulticastMessage(
   };
 }
 
-/**
- * Remove invalid FCM tokens from user document
- */
-async function removeInvalidTokens(
-  userId: string,
-  allTokens: string[],
-  invalidTokens: string[]
-): Promise<void> {
+async function removeInvalidTokens(userId: string, invalidTokens: string[]): Promise<void> {
   if (invalidTokens.length === 0) return;
 
   logger.info('Removing invalid FCM tokens', {
     userId,
     count: invalidTokens.length,
-    tokenPrefixes: invalidTokens.map(t => t?.substring(0, 20) + '...'),
+    tokenPrefixes: invalidTokens.map((t) => t?.substring(0, 20) + '...'),
   });
 
   try {
-    const userRef = db.collection('users').doc(userId);
-    const validTokens = allTokens.filter(t => !invalidTokens.includes(t));
-    await userRef.update({
-      'notifications.fcmTokens': validTokens,
-      updatedAt: new Date().toISOString(),
-    });
+    await deleteInvalidFcmTokens(userId, invalidTokens);
     logger.info('Invalid FCM tokens removed successfully', { userId });
   } catch (error) {
     logger.error('Failed to remove invalid FCM tokens', { error, userId });
@@ -191,7 +183,7 @@ export async function sendNotification(
     });
 
     // Clean up invalid tokens
-    await removeInvalidTokens(userId, tokens, invalidTokens);
+    await removeInvalidTokens(userId, invalidTokens);
 
     return {
       success: response.successCount > 0,
@@ -211,28 +203,13 @@ export async function sendNotification(
 
 /**
  * Send a notification to a user by userId
- * Fetches tokens from the user document automatically
+ * Fetches tokens from the private fcmTokens subcollection
  */
 export async function sendNotificationToUser(
   userId: string,
   options: SendNotificationOptions
 ): Promise<SendNotificationToUserResult> {
-  const userDoc = await db.collection('users').doc(userId).get();
-
-  if (!userDoc.exists) {
-    logger.warn('User not found for notification', { userId });
-    return {
-      success: false,
-      tokensFound: false,
-      totalTokens: 0,
-      successCount: 0,
-      failureCount: 0,
-      invalidTokensRemoved: 0,
-    };
-  }
-
-  const userData = userDoc.data() as { notifications?: { fcmTokens?: string[] } };
-  const tokens = userData?.notifications?.fcmTokens || [];
+  const tokens = await listFcmTokensForUser(userId);
 
   if (tokens.length === 0) {
     logger.info('No FCM tokens registered for user', { userId });

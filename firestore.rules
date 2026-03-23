@@ -32,6 +32,11 @@ service cloud.firestore {
         ]);
       
       allow delete: if false;
+
+      // FCM registration tokens — Cloud Functions (Admin SDK) only
+      match /fcmTokens/{tokenId} {
+        allow read, write: if false;
+      }
     }
   }
 }

@@ -67,8 +67,8 @@ export function useAuth(): UseAuthResult {
             // From Firestore
             settings: data.settings || { theme: 'system' },
             notifications: {
-              enabled: (data.notifications?.fcmTokens?.length || 0) > 0,
-              tokenCount: data.notifications?.fcmTokens?.length || 0,
+              enabled: (data.notifications?.registeredDeviceCount || 0) > 0,
+              tokenCount: data.notifications?.registeredDeviceCount || 0,
             },
             lastLoginAt: data.lastLoginAt || null,
           };
